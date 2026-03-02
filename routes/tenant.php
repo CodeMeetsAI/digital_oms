@@ -1,6 +1,12 @@
 <?php
 
 declare(strict_types=1);
+use App\Http\Controllers\Automation\AutomationController;
+use App\Http\Controllers\Automation\PersonalController;
+use App\Http\Controllers\Automation\CompanyController;
+use App\Http\Controllers\Automation\ConfigurationController;
+use App\Http\Controllers\Automation\IntegrationController as AutomationIntegrationController;
+use App\Http\Controllers\Automation\ApiManagementController;
 use App\Http\Controllers\IntegrationController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\ConfirmablePasswordController;
@@ -29,6 +35,9 @@ use App\Http\Controllers\Quotation\QuotationController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\UnitController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\TemplateController;
+use App\Http\Controllers\ReportsController;
+use App\Http\Controllers\Integrations\WooCommerceOAuthController;
 use Illuminate\Support\Facades\Route;
 use Stancl\Tenancy\Middleware\InitializeTenancyByDomain;
 use Stancl\Tenancy\Middleware\PreventAccessFromCentralDomains;
@@ -141,16 +150,91 @@ Route::middleware([
         Route::put('/due/order/update/{order}', [DueOrderController::class, 'update'])->name('due.update');
 
        
-         //Automation
-    // Automation Module
-Route::prefix('dashboard/automation')->name('automation.')->group(function() {
-    Route::get('/', [\App\Http\Controllers\AutomationController::class, 'index'])->name('index');
-    Route::get('/create', [\App\Http\Controllers\AutomationController::class, 'create'])->name('create');
-    Route::post('/', [\App\Http\Controllers\AutomationController::class, 'store'])->name('store');
-    Route::get('/{automation}/edit', [\App\Http\Controllers\AutomationController::class, 'edit'])->name('edit');
-    Route::put('/{automation}', [\App\Http\Controllers\AutomationController::class, 'update'])->name('update');
-    Route::delete('/{automation}', [\App\Http\Controllers\AutomationController::class, 'destroy'])->name('destroy');
-});
+        // Reports Module
+        Route::prefix('reports')->name('reports.')->group(function() {
+            Route::get('/', [ReportsController::class, 'index'])->name('index');
+            Route::get('/sales', [ReportsController::class, 'sales'])->name('sales');
+            Route::get('/purchases', [ReportsController::class, 'purchases'])->name('purchases');
+            Route::get('/inventory', [ReportsController::class, 'inventory'])->name('inventory');
+            Route::get('/integrations', [ReportsController::class, 'integrations'])->name('integrations');
+            Route::get('/financials', [ReportsController::class, 'financials'])->name('financials');
+            Route::get('/returns', [ReportsController::class, 'returns'])->name('returns');
+        });
+
+        // Integrations Module
+        Route::prefix('integrations')->name('integrations.')->group(function() {
+            Route::get('/', [IntegrationController::class, 'index'])->name('index');
+            Route::get('/create', [IntegrationController::class, 'create'])->name('create');
+            Route::get('/{id}', [IntegrationController::class, 'show'])->name('show');
+            Route::get('/{id}/edit', [IntegrationController::class, 'edit'])->name('edit');
+        });
+
+        // Template Module
+        Route::prefix('template')->name('template.')->group(function() {
+            Route::get('/', [TemplateController::class, 'index'])->name('index');
+            Route::get('/create', [TemplateController::class, 'create'])->name('create');
+            Route::get('/{id}', [TemplateController::class, 'show'])->name('show');
+            Route::get('/{id}/edit', [TemplateController::class, 'edit'])->name('edit');
+        });
+
+        // Automation Module
+        Route::prefix('automation')->name('automation.')->group(function() {
+            Route::get('/', [AutomationController::class, 'index'])->name('index');
+            
+            // Personal
+            Route::prefix('personal')->name('personal.')->group(function() {
+                Route::get('/details', [PersonalController::class, 'details'])->name('details');
+                Route::get('/default', [PersonalController::class, 'defaultDetails'])->name('default');
+                Route::get('/password', [PersonalController::class, 'passwordDetails'])->name('password');
+            });
+
+            // Company
+            Route::prefix('company')->name('company.')->group(function() {
+                Route::get('/details', [CompanyController::class, 'details'])->name('details');
+                Route::get('/team', [CompanyController::class, 'teamMembers'])->name('team');
+                Route::get('/notifications', [CompanyController::class, 'notifications'])->name('notifications');
+                Route::get('/roles', [CompanyController::class, 'roles'])->name('roles');
+            });
+
+            // Configurations
+            Route::prefix('configurations')->name('configurations.')->group(function() {
+                Route::get('/shipping', [ConfigurationController::class, 'shipping'])->name('shipping');
+                Route::get('/locations', [ConfigurationController::class, 'locations'])->name('locations');
+                Route::get('/categories', [ConfigurationController::class, 'categories'])->name('categories');
+                Route::get('/variations', [ConfigurationController::class, 'variations'])->name('variations');
+                Route::get('/barcodes', [ConfigurationController::class, 'barcodes'])->name('barcodes');
+                Route::get('/price-list', [ConfigurationController::class, 'priceList'])->name('price-list');
+                Route::get('/financials', [ConfigurationController::class, 'financials'])->name('financials');
+                Route::get('/taxes', [ConfigurationController::class, 'taxes'])->name('taxes');
+                Route::get('/sales-process', [ConfigurationController::class, 'salesProcess'])->name('sales-process');
+                Route::get('/transaction-numbers', [ConfigurationController::class, 'transactionNumbers'])->name('transaction-numbers');
+                Route::get('/automations', [ConfigurationController::class, 'automations'])->name('automations');
+                Route::get('/payment-methods', [ConfigurationController::class, 'paymentMethods'])->name('payment-methods');
+                Route::get('/shipping-methods', [ConfigurationController::class, 'shippingMethods'])->name('shipping-methods');
+                Route::get('/tags', [ConfigurationController::class, 'tags'])->name('tags');
+                Route::get('/brands', [ConfigurationController::class, 'brands'])->name('brands');
+                Route::get('/return-management', [ConfigurationController::class, 'returnManagement'])->name('return-management');
+            });
+
+            // Integrations
+            Route::prefix('integrations')->name('integrations.')->group(function() {
+                Route::get('/', [AutomationIntegrationController::class, 'index'])->name('index');
+                
+                // WooCommerce OAuth
+                Route::get('/woocommerce/connect', [WooCommerceOAuthController::class, 'connect'])->name('woocommerce.connect');
+                Route::any('/woocommerce/callback', [WooCommerceOAuthController::class, 'callback'])->name('woocommerce.callback');
+
+                Route::get('/{slug}', [AutomationIntegrationController::class, 'show'])->name('show');
+                Route::post('/{slug}', [AutomationIntegrationController::class, 'store'])->name('store');
+            });
+
+            // API Management
+            Route::prefix('api-management')->name('api-management.')->group(function() {
+                Route::get('/', [ApiManagementController::class, 'index'])->name('index');
+                Route::post('/generate', [ApiManagementController::class, 'generate'])->name('generate');
+                Route::delete('/revoke/{id}', [ApiManagementController::class, 'revoke'])->name('revoke');
+            });
+        });
 
         // TODO: Remove from OrderController
         Route::get('/orders/details/{order_id}/download', [OrderController::class, 'downloadInvoice'])->name('order.downloadInvoice');

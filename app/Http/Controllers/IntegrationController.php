@@ -2,61 +2,42 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\UserIntegration;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 
 class IntegrationController extends Controller
 {
-    // Mapping of slug to database table
-    private $integrationTables = [
-        'daraz' => 'daraz_integrations',
-        'woo' => 'woo_integrations',
-        'leopard' => 'leopards_integrations',
-    ];
-
-    public function show($slug)
+    /**
+     * Dashboard for all integrations.
+     */
+    public function index()
     {
-        if (!isset($this->integrationTables[$slug])) {
-            abort(404, "Integration not found.");
-        }
-
-        $table = $this->integrationTables[$slug];
-
-        // Fetch the first row (or whatever logic you need)
-        $integrationData = DB::table($table)->first();
-
-        return view('integrations.show', [
-            'slug' => $slug,
-            'integrationData' => $integrationData
-        ]);
+        return view('integrations.index');
     }
 
-    public function store(Request $request, $slug)
+    /**
+     * Create new integration.
+     */
+    public function create()
     {
-        if (!isset($this->integrationTables[$slug])) {
-            abort(404, "Integration not found.");
-        }
+        return view('integrations.create');
+    }
 
-        $table = $this->integrationTables[$slug];
+    /**
+     * Edit integration.
+     */
+    public function edit($id)
+    {
+        $integration = UserIntegration::findOrFail($id);
+        return view('integrations.edit', compact('integration'));
+    }
 
-        $data = $request->validate([
-            'store_nickname' => 'nullable|string|max:255',
-            'store_name' => 'nullable|string|max:255',
-            'contact_number' => 'nullable|string|max:50',
-        ]);
-
-        // If you have user-specific integration, you can use user_id here
-        $data['updated_at'] = now();
-
-        // Insert or update logic
-        $existing = DB::table($table)->first();
-        if ($existing) {
-            DB::table($table)->update($data);
-        } else {
-            $data['created_at'] = now();
-            DB::table($table)->insert($data);
-        }
-
-        return redirect()->back()->with('success', 'Integration saved successfully.');
+    /**
+     * View integration details.
+     */
+    public function show($id)
+    {
+        $integration = UserIntegration::findOrFail($id);
+        return view('integrations.show', compact('integration'));
     }
 }

@@ -9,9 +9,7 @@ class Integration extends Model
 {
     use HasFactory;
 
-    protected $table = 'integrations'; // Table name
-
-    protected $fillable = ['name', 'slug', 'type', 'description'];
+    protected $fillable = ['name', 'slug'];
 
     public function userIntegrations()
     {

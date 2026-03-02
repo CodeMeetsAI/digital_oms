@@ -3,7 +3,9 @@
 use App\Http\Controllers\Central\DomainFinderController;
 use App\Http\Controllers\Tenancy\RegistrationController;
 use App\Http\Controllers\IntegrationController;
+use App\Http\Controllers\WooIntegrationController;
 use Illuminate\Support\Facades\Route;
+
 /*
 |--------------------------------------------------------------------------
 | Web Routes
@@ -26,23 +28,25 @@ foreach (config('tenancy.central_domains') as $domain) {
         // User Registration
         Route::get('/register', [RegistrationController::class, 'showRegistrationForm'])->name('register');
         Route::post('/register', [RegistrationController::class, 'register']);
-        
+
+        // Daraz integration example
         Route::get('/daraz', [App\Http\Controllers\DarazController::class, 'index']);
-Route::post('/daraz', [App\Http\Controllers\DarazController::class, 'store']);
-
-        Route::get('/integrations/{slug}', [IntegrationController::class, 'show'])->name('integrations.show'); 
-
-
-        // Integrations Routes (tenant domain)
-        Route::get('/integrations/{slug}', [IntegrationController::class, 'show'])
-            ->name('integrations.show');
-        Route::post('/integrations/{slug}', [IntegrationController::class, 'store'])
-            ->name('integrations.store');
+        Route::post('/daraz', [App\Http\Controllers\DarazController::class, 'store']);
 
         // Dashboard route example (tenant-specific)
         Route::get('/dashboard', [App\Http\Controllers\Dashboards\DashboardController::class, 'index'])
             ->middleware(['auth'])
             ->name('dashboard');
+
+        // WooCommerce Integration Routes (tenant domain)
+        Route::get('/woo-integration-create', [WooIntegrationController::class, 'create'])->name('woo.integration.create');
+        Route::post('/woo-integration-store', [WooIntegrationController::class, 'store'])->name('woo.integration.store');
+        Route::get('/woo-sync-products/{id}', [WooIntegrationController::class, 'syncProducts'])->name('woo.sync.products');
+        Route::get('/woo-sync-orders/{id}', [WooIntegrationController::class, 'syncOrders'])->name('woo.sync.orders');
+
+        // Other tenant-specific integrations
+        Route::get('/integrations/{slug}', [IntegrationController::class, 'show'])->name('integrations.show');
+        Route::post('/integrations/{slug}', [IntegrationController::class, 'store'])->name('integrations.store');
     });
 }
 
@@ -50,27 +54,31 @@ Route::post('/daraz', [App\Http\Controllers\DarazController::class, 'store']);
 // 2️⃣ Local Testing / Fallback Routes
 // ------------------------------
 Route::prefix('local')->group(function () {
+
+    // WooCommerce Integration Routes (local testing)
+    Route::get('/woo-integration-create', [WooIntegrationController::class, 'create'])->name('woo.integration.create.local');
+    Route::post('/woo-integration-store', [WooIntegrationController::class, 'store'])->name('woo.integration.store.local');
+    Route::get('/woo-sync-products/{id}', [WooIntegrationController::class, 'syncProducts'])->name('woo.sync.products.local');
+    Route::get('/woo-sync-orders/{id}', [WooIntegrationController::class, 'syncOrders'])->name('woo.sync.orders.local');
+
     // Integrations (local testing)
-    Route::get('/integrations/{slug}', [IntegrationController::class, 'show'])
-        ->name('integrations.show.local');
-    Route::post('/integrations/{slug}', [IntegrationController::class, 'store'])
-        ->name('integrations.store.local');
+    Route::get('/integrations/{slug}', [IntegrationController::class, 'show'])->name('integrations.show.local');
+    Route::post('/integrations/{slug}', [IntegrationController::class, 'store'])->name('integrations.store.local');
 
     // Dashboard fallback (local testing)
     Route::get('/dashboard', [App\Http\Controllers\Dashboards\DashboardController::class, 'index'])
         ->middleware(['auth'])
         ->name('dashboard.local');
 });
-// Integration routes (local/testing + central)
-Route::get('/integrations/{slug}', [IntegrationController::class, 'show'])
-    ->name('integrations.show');
-Route::post('/integrations/{slug}', [IntegrationController::class, 'store'])
-    ->name('integrations.store');
 
 // ------------------------------
 // 3️⃣ Optional Default Fallback (any domain / unmatched)
 // ------------------------------
-Route::get('/integrations/{slug}', [IntegrationController::class, 'show'])
-    ->name('integrations.show.default');
-Route::post('/integrations/{slug}', [IntegrationController::class, 'store'])
-    ->name('integrations.store.default');
+Route::get('/integrations/{slug}', [IntegrationController::class, 'show'])->name('integrations.show.default');
+Route::post('/integrations/{slug}', [IntegrationController::class, 'store'])->name('integrations.store.default');
+
+// WooCommerce Integration Fallback (global)
+Route::get('/woo-integration-create', [WooIntegrationController::class, 'create'])->name('woo.integration.create.default');
+Route::post('/woo-integration-store', [WooIntegrationController::class, 'store'])->name('woo.integration.store.default');
+Route::get('/woo-sync-products/{id}', [WooIntegrationController::class, 'syncProducts'])->name('woo.sync.products.default');
+Route::get('/woo-sync-orders/{id}', [WooIntegrationController::class, 'syncOrders'])->name('woo.sync.orders.default');

@@ -13,6 +13,11 @@ return new class extends Migration
     {
         Schema::create('user_integrations', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('integration_id')->constrained()->onDelete('cascade');
+            $table->string('api_key')->nullable();
+            $table->string('api_secret')->nullable();
+            $table->string('store_url')->nullable();
+            $table->string('status')->default('active');
             $table->timestamps();
         });
     }
