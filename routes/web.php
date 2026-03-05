@@ -81,4 +81,4 @@ Route::post('/integrations/{slug}', [IntegrationController::class, 'store'])->na
 Route::get('/woo-integration-create', [WooIntegrationController::class, 'create'])->name('woo.integration.create.default');
 Route::post('/woo-integration-store', [WooIntegrationController::class, 'store'])->name('woo.integration.store.default');
 Route::get('/woo-sync-products/{id}', [WooIntegrationController::class, 'syncProducts'])->name('woo.sync.products.default');
-Route::get('/woo-sync-orders/{id}', [WooIntegrationController::class, 'syncOrders'])->name('woo.sync.orders.default');
+Route::get('/woo-sync-orders/{id}', [WooIntegrationController::class, 'syncOrders'])->name('woo.sync.orders.default');  

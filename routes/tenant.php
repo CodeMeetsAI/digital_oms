@@ -1,6 +1,7 @@
 <?php
 
 declare(strict_types=1);
+
 use App\Http\Controllers\Automation\AutomationController;
 use App\Http\Controllers\Automation\PersonalController;
 use App\Http\Controllers\Automation\CompanyController;
@@ -26,7 +27,7 @@ use App\Http\Controllers\Order\DueOrderController;
 use App\Http\Controllers\Order\OrderCompleteController;
 use App\Http\Controllers\Order\OrderController;
 use App\Http\Controllers\Order\OrderPendingController;
-use App\Http\Controllers\Product\ProductController;
+use App\Http\Controllers\Product\ProductController;  // use App\Http\Controllers\Product\ProductController;
 use App\Http\Controllers\Product\ProductExportController;
 use App\Http\Controllers\Product\ProductImportController;
 use App\Http\Controllers\ProfileController;
@@ -38,9 +39,11 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\TemplateController;
 use App\Http\Controllers\ReportsController;
 use App\Http\Controllers\Integrations\WooCommerceOAuthController;
+use App\Http\Controllers\WooIntegrationController;
 use Illuminate\Support\Facades\Route;
 use Stancl\Tenancy\Middleware\InitializeTenancyByDomain;
 use Stancl\Tenancy\Middleware\PreventAccessFromCentralDomains;
+
 
 /*
 |--------------------------------------------------------------------------
@@ -60,10 +63,6 @@ Route::middleware([
     PreventAccessFromCentralDomains::class,
 ])->group(function () {
 
-    Route::get('php/', function () {
-        return phpinfo();
-    });
-
     Route::get('/', function () {
         return redirect()->route('login');
     });
@@ -73,12 +72,12 @@ Route::middleware([
     Route::middleware(['auth'])->group(function () {
 
         Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
-
+          Route::post('/products/sync', [ProductController::class, 'sync'])->name('products.sync');
         // Profile Photo Route
         Route::get('/profile-photo/{filename}', [ProfileController::class, 'photo'])->name('profile.photo');
 
         // User Management
-        Route::resource('/users', UserController::class); // ->except(['show']);
+        Route::resource('/users', UserController::class);
         Route::put('/user/change-password/{username}', [UserController::class, 'updatePassword'])->name('users.updatePassword');
 
         Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
@@ -117,9 +116,9 @@ Route::middleware([
 
         // Route Purchases
         Route::get('/purchases/approved', [PurchaseController::class, 'approvedPurchases'])->name('purchases.approvedPurchases');
-        Route::get('/purchases/report', [PurchaseController::class, 'dailyPurchaseReport'])->name('purchases.dailyPurchaseReport'); // Check if this method exists, if not I will need to create it or remove this line.
-        Route::get('/purchases/report/export', [PurchaseController::class, 'getPurchaseReport'])->name('purchases.getPurchaseReport'); // Check if this method exists
-        Route::post('/purchases/report/export', [PurchaseController::class, 'exportPurchaseReport'])->name('purchases.exportPurchaseReport'); // Check if this method exists
+        Route::get('/purchases/report', [PurchaseController::class, 'dailyPurchaseReport'])->name('purchases.dailyPurchaseReport');
+        Route::get('/purchases/report/export', [PurchaseController::class, 'getPurchaseReport'])->name('purchases.getPurchaseReport');
+        Route::post('/purchases/report/export', [PurchaseController::class, 'exportPurchaseReport'])->name('purchases.exportPurchaseReport');
         Route::resource('/purchases', PurchaseController::class);
 
         // Route Orders
@@ -128,13 +127,6 @@ Route::middleware([
         Route::get('/orders/complete', OrderCompleteController::class)->name('orders.complete');
 
         Route::get('/orders/create', [OrderController::class, 'create'])->name('orders.create');
-        Route::post('/orders/store', [OrderController::class, 'store'])->name('orders.store');
-        Route::post('/integrations/woocommerce', [WooCommerceController::class, 'store'])->name('integrations.woocommerce.store');
-        Route::post('/integrations/woocommerce/test', [WooCommerceController::class, 'test'])->name('integrations.woocommerce.test');
-        Route::post('/integrations/daraz', [DarazController::class, 'store'])->name('integrations.daraz.store');
-        Route::post('/integrations/daraz/test', [DarazController::class, 'test'])->name('integrations.daraz.test');
-        Route::post('/integrations/leopards', [LeopardsController::class, 'store'])->name('integrations.leopards.store');
-        Route::post('/integrations/leopards/test', [LeopardsController::class, 'test'])->name('integrations.leopards.test');
         Route::post('/orders/store', [OrderController::class, 'store'])->name('orders.store');
 
         Route::post('/invoice/create', [InvoiceController::class, 'create'])->name('invoice.create');
@@ -149,7 +141,6 @@ Route::middleware([
         Route::get('/due/order/edit/{order}', [DueOrderController::class, 'edit'])->name('due.edit');
         Route::put('/due/order/update/{order}', [DueOrderController::class, 'update'])->name('due.update');
 
-       
         // Reports Module
         Route::prefix('reports')->name('reports.')->group(function() {
             Route::get('/', [ReportsController::class, 'index'])->name('index');
@@ -159,14 +150,6 @@ Route::middleware([
             Route::get('/integrations', [ReportsController::class, 'integrations'])->name('integrations');
             Route::get('/financials', [ReportsController::class, 'financials'])->name('financials');
             Route::get('/returns', [ReportsController::class, 'returns'])->name('returns');
-        });
-
-        // Integrations Module
-        Route::prefix('integrations')->name('integrations.')->group(function() {
-            Route::get('/', [IntegrationController::class, 'index'])->name('index');
-            Route::get('/create', [IntegrationController::class, 'create'])->name('create');
-            Route::get('/{id}', [IntegrationController::class, 'show'])->name('show');
-            Route::get('/{id}/edit', [IntegrationController::class, 'edit'])->name('edit');
         });
 
         // Template Module
@@ -216,16 +199,17 @@ Route::middleware([
                 Route::get('/return-management', [ConfigurationController::class, 'returnManagement'])->name('return-management');
             });
 
-            // Integrations
+            // Integrations (Consolidated and explicitly defined)
             Route::prefix('integrations')->name('integrations.')->group(function() {
-                Route::get('/', [AutomationIntegrationController::class, 'index'])->name('index');
+                Route::get('/', [IntegrationController::class, 'showIntegrationsPage'])->name('index');
+                Route::post('/connect', [IntegrationController::class, 'connectAccount'])->name('connect');
                 
                 // WooCommerce OAuth
                 Route::get('/woocommerce/connect', [WooCommerceOAuthController::class, 'connect'])->name('woocommerce.connect');
                 Route::any('/woocommerce/callback', [WooCommerceOAuthController::class, 'callback'])->name('woocommerce.callback');
 
-                Route::get('/{slug}', [AutomationIntegrationController::class, 'show'])->name('show');
-                Route::post('/{slug}', [AutomationIntegrationController::class, 'store'])->name('store');
+                // Dynamic Platform Config (Moved to bottom of group to avoid capturing static sub-paths)
+                Route::get('/{platform}', [IntegrationController::class, 'showPlatformConfig'])->name('platform.config');
             });
 
             // API Management
@@ -236,29 +220,18 @@ Route::middleware([
             });
         });
 
-        // TODO: Remove from OrderController
-        Route::get('/orders/details/{order_id}/download', [OrderController::class, 'downloadInvoice'])->name('order.downloadInvoice');
+        // WooCommerce Integration Routes (Legacy / Dedicated)
+        Route::get('/woo-integration-create', [WooIntegrationController::class, 'create'])->name('woo.integration.create');
+        Route::post('/woo-integration-store', [WooIntegrationController::class, 'store'])->name('woo.integration.store');
+        Route::get('/woo-sync-products/{id}', [WooIntegrationController::class, 'syncProducts'])->name('woo.sync.products');
+        Route::get('/woo-sync-orders/{id}', [WooIntegrationController::class, 'syncOrders'])->name('woo.sync.orders');
 
-        // Auth routes that require auth
-        Route::get('verify-email', EmailVerificationPromptController::class)->name('verification.notice');
-        Route::get('verify-email/{id}/{hash}', VerifyEmailController::class)
-            ->middleware(['signed', 'throttle:6,1'])
-            ->name('verification.verify');
+        // Daraz integration
+        Route::get('/daraz', [App\Http\Controllers\DarazController::class, 'index'])->name('daraz.index');
+        Route::post('/daraz', [App\Http\Controllers\DarazController::class, 'store'])->name('daraz.store');
 
-        Route::post('email/verification-notification', [EmailVerificationNotificationController::class, 'store'])
-            ->middleware('throttle:6,1')
-            ->name('verification.send');
-
-        Route::get('confirm-password', [ConfirmablePasswordController::class, 'show'])
-            ->name('password.confirm');
-
-        Route::post('confirm-password', [ConfirmablePasswordController::class, 'store']);
-
+        // Auth routes
         Route::put('password', [PasswordController::class, 'update'])->name('password.update');
-
-        Route::post('logout', [AuthenticatedSessionController::class, 'destroy'])
-            ->name('logout');
-        Route::get('/integrations/{slug}', [IntegrationController::class, 'show'])
-    ->name('integrations.show');
+        Route::post('logout', [AuthenticatedSessionController::class, 'destroy'])->name('logout');
     });
 });

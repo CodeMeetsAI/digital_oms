@@ -42,6 +42,36 @@
             </div>
         </div>
 
+        
+        <!-- Products page table / header me ek button -->
+
+        
+<!-- <div class="mb-4">
+    <form action="{{ route('products.sync') }}" method="POST">
+        @csrf
+        <button type="submit" class="btn btn-primary">Sync Products</button>
+    </form>
+</div> -->
+<!-- Sync Products Button --> <!-- Success/Error Messages -->
+@if(session('success'))
+    <div class="alert alert-success mb-2">
+        {{ session('success') }}
+    </div>
+@endif
+@if(session('error'))
+    <div class="alert alert-danger mb-2">
+        {{ session('error') }}
+    </div>
+@endif
+
+<!-- Sync Products Button -->
+<form action="{{ route('products.sync') }}" method="POST" style="margin-bottom: 20px;">
+    @csrf
+    <button type="submit" class="btn btn-primary">
+        Sync Products
+    </button>
+</form>
+
         <div id="product-search-bar" class="d-none mb-3">
             <div class="d-flex align-items-center gap-2 flex-wrap">
                 <select class="form-select w-auto" id="product-search-field">

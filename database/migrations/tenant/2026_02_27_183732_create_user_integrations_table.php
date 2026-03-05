@@ -13,7 +13,10 @@ return new class extends Migration
     {
         Schema::create('user_integrations', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('integration_id')->constrained()->onDelete('cascade');
+            // user_id references users table (standard Laravel users migration runs early)
+            $table->foreignId('user_id')->nullable()->constrained()->onDelete('cascade');
+            // integration_id references integrations table (created in 2026_02_27_183719)
+            $table->foreignId('integration_id')->constrained('integrations')->onDelete('cascade');
             $table->string('api_key')->nullable();
             $table->string('api_secret')->nullable();
             $table->string('store_url')->nullable();

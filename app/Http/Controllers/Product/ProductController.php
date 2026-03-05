@@ -2,6 +2,9 @@
 
 namespace App\Http\Controllers\Product;
 
+
+namespace App\Http\Controllers\Product;
+
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Product\StoreProductRequest;
 use App\Http\Requests\Product\UpdateProductRequest;
@@ -12,8 +15,9 @@ use App\Models\Unit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
+use Illuminate\Support\Str;  // ✅ only once
 use Picqer\Barcode\BarcodeGeneratorHTML;
+use GuzzleHttp\Client;
 
 class ProductController extends Controller
 {
@@ -22,12 +26,8 @@ class ProductController extends Controller
         $products = Product::all();
 
         $totalSellable = $products->where('quantity', '>', 0)->count();
-        $totalWorthSales = $products->sum(function ($product) {
-            return $product->quantity * $product->selling_price;
-        });
-        $totalWorthCost = $products->sum(function ($product) {
-            return $product->quantity * $product->buying_price;
-        });
+        $totalWorthSales = $products->sum(fn($product) => $product->quantity * $product->selling_price);
+        $totalWorthCost = $products->sum(fn($product) => $product->quantity * $product->buying_price);
 
         $categories = Category::all(['id', 'name']);
         $units = Unit::all(['id', 'name']);
@@ -65,9 +65,7 @@ class ProductController extends Controller
         $existingProduct = Product::where('code', $request->get('code'))->first();
 
         if ($existingProduct) {
-            $newCode = $this->generateUniqueCode();
-
-            $request->merge(['code' => $newCode]);
+            $request->merge(['code' => $this->generateUniqueCode()]);
         }
 
         try {
@@ -86,53 +84,33 @@ class ProductController extends Controller
                 'barcode' => $request->barcode,
             ]);
 
-            /**
-             * Handle image upload
-             */
             if ($request->hasFile('product_image')) {
                 $file = $request->file('product_image');
                 $filename = hexdec(uniqid()).'.'.$file->getClientOriginalExtension();
 
-                // Validate file before uploading
                 if ($file->isValid()) {
                     $file->storeAs('products/', $filename, 'public');
-                    $product->update([
-                        'product_image' => $filename,
-                    ]);
+                    $product->update(['product_image' => $filename]);
                 } else {
                     DB::rollBack();
-
                     return back()->withErrors(['product_image' => 'Invalid image file']);
                 }
             }
 
             DB::commit();
 
-            if ($request->expectsJson()) {
-                return response()->json([
-                    'success' => true,
-                    'product' => $product,
-                ]);
-            }
-
-            return redirect()
-                ->back()
-                ->with('success', 'Product has been created with code: '.$product->code);
+            return $request->expectsJson()
+                ? response()->json(['success' => true, 'product' => $product])
+                : redirect()->back()->with('success', 'Product has been created with code: '.$product->code);
 
         } catch (\Exception $e) {
             DB::rollBack();
-            if ($request->expectsJson()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Something went wrong while creating the product.',
-                ], 500);
-            }
-
-            return back()->withErrors(['error' => 'Something went wrong while creating the product: '.$e->getMessage()]);
+            return $request->expectsJson()
+                ? response()->json(['success' => false, 'message' => $e->getMessage()], 500)
+                : back()->withErrors(['error' => 'Something went wrong: '.$e->getMessage()]);
         }
     }
 
-    // Helper method to generate a unique product code
     private function generateUniqueCode()
     {
         do {
@@ -144,9 +122,7 @@ class ProductController extends Controller
 
     public function show(Product $product)
     {
-        // Generate a barcode
         $generator = new BarcodeGeneratorHTML;
-
         $barcode = $generator->getBarcode($product->code, $generator::TYPE_CODE_128);
 
         return view('products.show', [
@@ -169,44 +145,29 @@ class ProductController extends Controller
         $product->update($request->except('product_image'));
 
         if ($request->hasFile('product_image')) {
-
-            // Delete old image if exists
             if ($product->product_image) {
                 Storage::disk('public')->delete('products/'.$product->product_image);
             }
 
-            // Prepare new image
             $file = $request->file('product_image');
             $fileName = hexdec(uniqid()).'.'.$file->getClientOriginalExtension();
-
-            // Store new image to public storage
             $file->storeAs('products/', $fileName, 'public');
 
-            // Save new image name to database
-            $product->update([
-                'product_image' => $fileName,
-            ]);
+            $product->update(['product_image' => $fileName]);
         }
 
-        return redirect()
-            ->route('products.index')
-            ->with('success', 'Product has been updated!');
+        return redirect()->route('products.index')->with('success', 'Product has been updated!');
     }
 
     public function destroy(Product $product)
     {
-        /**
-         * Delete photo if exists.
-         */
         if ($product->product_image) {
             Storage::disk('public')->delete('products/'.$product->product_image);
         }
 
         $product->delete();
 
-        return redirect()
-            ->route('products.index')
-            ->with('success', 'Product has been deleted!');
+        return redirect()->route('products.index')->with('success', 'Product has been deleted!');
     }
 
     public function search(Request $request)
@@ -214,147 +175,117 @@ class ProductController extends Controller
         $search = $request->query('search');
 
         $products = Product::query()
-            ->when($search, function ($query, $search) {
-                $query->where('name', 'like', "%{$search}%")
-                    ->orWhere('code', 'like', "%{$search}%");
-            })
+            ->when($search, fn($query, $search) => $query->where('name', 'like', "%{$search}%")
+                ->orWhere('code', 'like', "%{$search}%"))
             ->take(10)
             ->get(['id', 'name', 'code', 'buying_price', 'selling_price', 'quantity', 'product_image']);
 
-        $products = $products->map(function (Product $product) {
-            return [
-                'id' => $product->id,
-                'name' => $product->name,
-                'code' => $product->code,
-                'buying_price' => $product->buying_price,
-                'selling_price' => $product->selling_price,
-                'quantity' => $product->quantity,
-                'product_image_url' => $product->product_image
-                    ? asset('storage/products/'.$product->product_image)
-                    : asset('assets/img/products/default.webp'),
-            ];
-        });
-
-        return response()->json([
-            'success' => true,
-            'products' => $products,
+        $products = $products->map(fn(Product $product) => [
+            'id' => $product->id,
+            'name' => $product->name,
+            'code' => $product->code,
+            'buying_price' => $product->buying_price,
+            'selling_price' => $product->selling_price,
+            'quantity' => $product->quantity,
+            'product_image_url' => $product->product_image
+                ? asset('storage/products/'.$product->product_image)
+                : asset('assets/img/products/default.webp'),
         ]);
+
+        return response()->json(['success' => true, 'products' => $products]);
     }
 
-    public function storeBundle(Request $request)
+
+    public function sync(Request $request)
     {
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'sku' => 'nullable|string|max:255|unique:products,code',
-            'sku_autogenerate' => 'nullable|in:on,off,1,0,true,false',
-            'selling_price' => 'required|numeric|min:0',
-            'category_id' => 'nullable|exists:categories,id',
-            'unit_id' => 'nullable|exists:units,id',
-            'description' => 'nullable|string',
-            'quantity_sync' => 'nullable|in:on,off,1,0,true,false',
-            'product_image' => 'nullable|image|max:2048',
-            'selected_products' => 'required',
-        ]);
+        $userId = auth()->id();
 
-        $selectedProducts = json_decode($validated['selected_products'], true);
+        // 1️⃣ Fetch integration
+        $integration = DB::table('user_integrations')
+            ->where('user_id', $userId)
+            ->where('platform', 'woocommerce')
+            ->first();
 
-        if (! is_array($selectedProducts) || count($selectedProducts) === 0) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Please add at least one product.',
-            ], 422);
+        if (!$integration) {
+            return back()->withErrors(['error' => 'Integration not found for your account.']);
         }
 
-        $items = collect($selectedProducts)->map(function ($item) {
-            return [
-                'id' => $item['id'] ?? null,
-                'quantity' => $item['quantity'] ?? null,
-            ];
-        });
+        // 2️⃣ Map columns
+        $columnsMap = [
+            'api_url' => 'store_name',
+            'api_key' => 'api_key',
+            'api_secret' => 'api_secret',
+        ];
 
-        if ($items->contains(fn ($item) => empty($item['id']) || empty($item['quantity']) || (int) $item['quantity'] < 1)) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Bundle items are invalid.',
-            ], 422);
+        $apiUrl = $integration->{$columnsMap['api_url']} ?? null;
+        $apiKey = $integration->{$columnsMap['api_key']} ?? null;
+        $apiSecret = $integration->{$columnsMap['api_secret']} ?? null;
+
+        // Ensure full URL
+        if ($apiUrl && !str_starts_with($apiUrl, 'http')) {
+            $apiUrl = 'https://' . $apiUrl;
         }
 
-        $sku = $validated['sku'] ?? null;
-        $autogenerate = filter_var($validated['sku_autogenerate'] ?? false, FILTER_VALIDATE_BOOLEAN);
-
-        if (! $sku && ! $autogenerate) {
-            return response()->json([
-                'success' => false,
-                'message' => 'SKU is required unless autogenerate is checked.',
-            ], 422);
+        if (!$apiUrl || !$apiKey || !$apiSecret) {
+            return back()->withErrors(['error' => 'Integration credentials are missing or incorrect.']);
         }
-
-        if ($autogenerate && ! $sku) {
-            $sku = 'BND-'.strtoupper(Str::random(8));
-        }
-
-        $productIds = $items->pluck('id')->values()->all();
-        $products = Product::whereIn('id', $productIds)->get(['id', 'buying_price']);
-        $productsById = $products->keyBy('id');
-
-        $totalCost = 0;
-        foreach ($items as $item) {
-            $product = $productsById->get((int) $item['id']);
-            if (! $product) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'One or more products were not found.',
-                ], 422);
-            }
-            $totalCost += ($product->buying_price * (int) $item['quantity']);
-        }
-
-        DB::beginTransaction();
 
         try {
-            $product = Product::create([
-                'name' => $validated['name'],
-                'slug' => Str::slug($validated['name']),
-                'code' => $sku,
-                'quantity' => 0,
-                'buying_price' => $totalCost,
-                'selling_price' => $validated['selling_price'],
-                'quantity_alert' => 0,
-                'category_id' => $validated['category_id'] ?? null,
-                'unit_id' => $validated['unit_id'] ?? null,
-                'notes' => $validated['description'] ?? null,
-            ]);
+            // 3️⃣ WooCommerce API
+            $endpoint = rtrim($apiUrl, '/') . '/wp-json/wc/v3/products?per_page=100';
 
-            if ($request->hasFile('product_image')) {
-                $file = $request->file('product_image');
-                $filename = hexdec(uniqid()).'.'.$file->getClientOriginalExtension();
-                $file->storeAs('products/', $filename, 'public');
-                $product->update(['product_image' => $filename]);
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, $endpoint);
+            curl_setopt($ch, CURLOPT_USERPWD, $apiKey . ':' . $apiSecret);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false); // dev only
+            $response = curl_exec($ch);
+
+            if (curl_errno($ch)) {
+                throw new \Exception('cURL error: ' . curl_error($ch));
             }
 
-            $bundle = Bundle::create([
-                'product_id' => $product->id,
-                'quantity_sync' => filter_var($validated['quantity_sync'] ?? true, FILTER_VALIDATE_BOOLEAN),
-                'total_cost' => $totalCost,
-            ]);
+            curl_close($ch);
 
-            foreach ($items as $item) {
-                $bundle->products()->attach($item['id'], ['quantity' => $item['quantity']]);
+            $products = json_decode($response, true);
+
+            if (!$products || !is_array($products)) {
+                throw new \Exception('Invalid response from WooCommerce.');
             }
 
-            DB::commit();
+            // 4️⃣ Save products
+            foreach ($products as $p) {
+                $slug = Str::slug($p['name'] ?? 'Unnamed');
 
-            return response()->json([
-                'success' => true,
-                'product' => $product,
-            ]);
+                // Ensure slug uniqueness
+                $slugOriginal = $slug;
+                $counter = 1;
+                while (Product::where('slug', $slug)->exists()) {
+                    $slug = $slugOriginal . '-' . $counter;
+                    $counter++;
+                }
+
+                // Fetch first product image if exists
+                $productImageUrl = $p['images'][0]['src'] ?? null;
+
+                Product::updateOrCreate(
+                    ['code' => $p['sku'] ?? $p['id']],
+                    [
+                        'name' => $p['name'] ?? 'Unnamed',
+                        'slug' => $slug,
+                        'quantity' => isset($p['stock_quantity']) ? (int)$p['stock_quantity'] : 0,
+                        'selling_price' => isset($p['price']) ? (float)$p['price'] : 0,
+                        'buying_price' => isset($p['regular_price']) ? (float)$p['regular_price'] : 0,
+                        'quantity_alert' => 0, // default value for NOT NULL column
+                        'product_image' => $productImageUrl, // save image URL
+                    ]
+                );
+            }
+
+            return back()->with('success', 'Products synced successfully with images!');
+
         } catch (\Exception $e) {
-            DB::rollBack();
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Error creating bundle.',
-            ], 500);
+            return back()->withErrors(['error' => 'Sync failed: ' . $e->getMessage()]);
         }
     }
 }

@@ -13,7 +13,7 @@ class Product extends Model
 {
     use HasFactory;
 
-    protected $guarded = ['id'];
+    protected $guarded = ['id']; 
 
     protected $fillable = [
         'name',
@@ -31,12 +31,23 @@ class Product extends Model
         'unit_id',
         'created_at',
         'updated_at',
+
+        // ✅ External platform fields for sync
+        'platform_product_id',  // ID from WooCommerce / Shopify / Daraz
+        'platform',             // 'woocommerce', 'shopify', 'daraz'
+        'external_description', // Optional: description from external platform
+        'external_price',       // Optional: price from external platform
+        'external_stock',       // Optional: stock quantity from external platform
+        'external_image_url',   // Optional: main image URL from platform
+        'user_id',              // Which tenant/user owns this product
     ];
 
     protected $casts = [
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
         'tax_type' => TaxType::class,
+        'external_price' => 'decimal:2',
+        'external_stock' => 'integer',
     ];
 
     public function getRouteKeyName(): string
