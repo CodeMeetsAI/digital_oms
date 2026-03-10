@@ -9,6 +9,7 @@
         "anayarojo/shoppingcart": "^4.2",
         "automattic/woocommerce": "^3.1",
         "awobaz/compoships": "^2.2",
+        "barryvdh/laravel-dompdf": "^3.1",
         "guzzlehttp/guzzle": "^7.2",
         "haruncpi/laravel-id-generator": "^1.1",
         "laravel/framework": "^10.8",

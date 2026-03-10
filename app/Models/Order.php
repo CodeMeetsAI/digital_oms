@@ -2,55 +2,32 @@
 
 namespace App\Models;
 
-use App\Enums\OrderStatus;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
+use App\Models\UserIntegration;
 
 class Order extends Model
 {
-    use HasFactory;
+    protected $connection = 'tenant'; // VERY IMPORTANT
+    protected $fillable = ['order_id', 'user_id', 'status', 'total'];
 
-    protected $guarded = [
-        'id',
-    ];
-
-    protected $fillable = [
-        'customer_id',
-        'order_date',
-        'order_status',
-        'total_products',
-        'sub_total',
-        'vat',
-        'total',
-        'invoice_no',
-        'payment_type',
-        'pay',
-        'due',
-    ];
-
-    protected $casts = [
-        'order_date' => 'date',
-        'created_at' => 'datetime',
-        'updated_at' => 'datetime',
-        'order_status' => OrderStatus::class,
-    ];
-
-    public function customer(): BelongsTo
+    // Example method to get WooCommerce integration for this user
+    public function getWooIntegration()
     {
-        return $this->belongsTo(Customer::class);
+        // Make sure tenant connection is active
+        return UserIntegration::where('user_id', $this->user_id)
+                              ->where('platform', 'woocommerce')
+                              ->first();
     }
 
-    public function details(): HasMany
+    public function syncOrder()
     {
-        return $this->hasMany(OrderDetails::class);
-    }
+        $integration = $this->getWooIntegration();
 
-    public function scopeSearch($query, $value): void
-    {
-        $query->where('invoice_no', 'like', "%{$value}%")
-            ->orWhere('order_status', 'like', "%{$value}%")
-            ->orWhere('payment_type', 'like', "%{$value}%");
+        if (!$integration) {
+            throw new \Exception('User integration not found for WooCommerce.');
+        }
+
+        // Your sync logic here
+        // Example: call API using $integration->api_key
     }
 }

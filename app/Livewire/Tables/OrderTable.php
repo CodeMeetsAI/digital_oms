@@ -25,7 +25,6 @@ class OrderTable extends Component
     {
         if ($this->sortField === $field) {
             $this->sortAsc = ! $this->sortAsc;
-
         } else {
             $this->sortAsc = true;
         }
@@ -41,9 +40,13 @@ class OrderTable extends Component
 
     public function render()
     {
-        $query = Order::query()
-            ->with(['customer', 'details'])
-            ->search($this->search);
+        $query = Order::with(['customer', 'details'])
+            ->when($this->search, function ($q) {
+                $q->where('invoice_no', 'like', "%{$this->search}%")
+                  ->orWhereHas('customer', function ($q2) {
+                      $q2->where('name', 'like', "%{$this->search}%");
+                  });
+            });
 
         match ($this->status) {
             'pending' => $query->where('order_status', OrderStatus::PENDING),

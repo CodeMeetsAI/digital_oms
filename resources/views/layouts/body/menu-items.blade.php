@@ -13,7 +13,9 @@
         </span>
     </a>
 </li>
-
+<a href="{{ route('picklist.index') }}" class="dropdown-item">
+    Pick List
+</a>
 <!-- Sales -->
 <li class="nav-item dropdown {{ request()->is('orders*', 'quotations*', 'customers*') ? 'active' : '' }}">
     <a class="nav-link dropdown-toggle" href="#navbar-sales" data-bs-toggle="dropdown" data-bs-auto-close="false" role="button" aria-expanded="false">
