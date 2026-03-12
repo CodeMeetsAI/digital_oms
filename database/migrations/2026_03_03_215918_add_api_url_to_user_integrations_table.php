@@ -7,9 +7,12 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('user_integrations', function (Blueprint $table) {
-            $table->string('api_url')->nullable()->after('store_name');
-        });
+        Schema::create('user_integrations', function (Blueprint $table) {
+    $table->id();
+    $table->string('store_name');
+    // other columns
+    $table->timestamps();
+});
     }
 
     public function down(): void
