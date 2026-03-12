@@ -41,8 +41,24 @@ class RegisteredUserController extends Controller
             'terms-of-service' => ['required'],
         ]);
 
-        // ✅ Create the user
+        // ✅ Step 1: Create the Tenant
+        $tenantId = strtolower($request->username);
+        $tenant = \App\Models\Tenant::create([
+            'id' => $tenantId,
+            'name' => $request->name,
+            'subdomain' => $tenantId,
+        ]);
+
+        // ✅ Step 2: Create the Domain (subdomain.base-domain.com)
+        // You can adjust the base domain as needed
+        $baseDomain = parse_url(config('app.url'), PHP_URL_HOST) ?: 'localhost';
+        $tenant->domains()->create([
+            'domain' => $tenantId . '.' . $baseDomain,
+        ]);
+
+        // ✅ Step 3: Create the User and link to the Tenant
         $user = User::create([
+            'tenant_id' => $tenant->id,
             'name' => $request->name,
             'username' => $request->username,
             'email' => $request->email,
@@ -51,47 +67,10 @@ class RegisteredUserController extends Controller
 
         event(new Registered($user));
 
-        // ✅ Create tenant DB & run migrations safely
-        $this->setupTenantDatabase($user);
-
-        // ✅ Logout the user (optional, if you want them to login manually)
+        // ✅ Logout (optional, if you want them to login manually)
         Auth::logout();
 
         // ✅ Redirect to login page with success message
         return redirect()->route('login')->with('success', 'Account created successfully! Please login.');
-    }
-
-    /**
-     * Setup tenant database safely
-     */
-    protected function setupTenantDatabase(User $user)
-    {
-        // Example: check if table exists before creating
-        if (!Schema::hasTable('woo_integrations')) {
-            Schema::create('woo_integrations', function ($table) {
-                $table->id();
-                $table->string('store_nickname');
-                $table->string('contact_number')->nullable();
-                $table->string('email')->nullable();
-                $table->string('store_image')->nullable();
-                $table->string('api_url');
-                $table->string('consumer_key');
-                $table->string('consumer_secret');
-                $table->boolean('push_fulfillment')->default(0);
-                $table->boolean('auto_import_orders')->default(0);
-                $table->string('customer_category')->nullable();
-                $table->boolean('take_stock_mode')->default(0);
-                $table->string('take_stock_location')->nullable();
-                $table->boolean('update_price')->default(0);
-                $table->boolean('auto_import_products')->default(0);
-                $table->boolean('sync_stock')->default(0);
-                $table->boolean('update_product_on_import')->default(0);
-                $table->boolean('auto_generate_sku')->default(0);
-                $table->timestamps();
-            });
-        }
-
-        // ✅ Optionally, run other tenant-specific migrations here
-        // Artisan::call('tenants:migrate', ['--tenants' => [$user->id]]);
     }
 }
